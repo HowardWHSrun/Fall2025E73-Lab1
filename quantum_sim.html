@@ -53,6 +53,9 @@
             margin: 20px auto;
             background: #ffffff;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/7;
         }
         .controls {
             display: flex;
@@ -192,7 +195,7 @@
                 <label><input type="checkbox" id="iw_auto" checked /> Auto update</label>
                 <button id="iw_save">Download PNG</button>
             </div>
-            <canvas id="iw_canvas" width="900" height="360"></canvas>
+            <canvas id="iw_canvas" width="1600" height="700"></canvas>
             <div class="small" id="iw_info"></div>
         </div>
 
@@ -234,7 +237,7 @@
                 <label><input type="checkbox" id="fw_auto" checked /> Auto update</label>
                 <button id="fw_save">Download PNG</button>
             </div>
-            <canvas id="fw_canvas" width="900" height="360"></canvas>
+            <canvas id="fw_canvas" width="1600" height="700"></canvas>
             <div class="small" id="fw_info"></div>
         </div>
 
@@ -276,7 +279,7 @@
                 <label><input type="checkbox" id="br_auto" checked /> Auto update</label>
                 <button id="br_save">Download PNG</button>
             </div>
-            <canvas id="br_canvas" width="900" height="360"></canvas>
+            <canvas id="br_canvas" width="1600" height="700"></canvas>
             <div class="small" id="br_info"></div>
         </div>
 
@@ -314,7 +317,7 @@
                 <label><input type="checkbox" id="ho_auto" checked /> Auto update</label>
                 <button id="ho_save">Download PNG</button>
             </div>
-            <canvas id="ho_canvas" width="900" height="360"></canvas>
+            <canvas id="ho_canvas" width="1600" height="700"></canvas>
             <div class="small" id="ho_info"></div>
         </div>
     </div>
@@ -530,21 +533,20 @@
         const showEnergy = options.showEnergy !== false;
 
         // Background
-        const gradient = ctx.createLinearGradient(0, 0, W, H);
-        gradient.addColorStop(0, '#f0f4ff');
-        gradient.addColorStop(1, '#e6f0ff');
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, W, H);
 
         // Convert units
         const x_nm = x.map(xi => xi / NM);
         const V_eV = V.map(v => v / E_CHARGE);
 
-        // Determine y scaling
+        // Determine y scaling (pad top/bottom for clarity)
         const Vmin = Math.min(...V_eV);
         const Vmax = Math.max(...V_eV);
         let ymin = Math.min(Vmin, 0);
-        let ymax = Math.max(Vmax, (energies[energies.length-1] / E_CHARGE) * 1.2);
+        let ymax = Math.max(Vmax, (energies[energies.length-1] / E_CHARGE));
+        const pad = (ymax - ymin) * 0.15 || 1;
+        ymin -= pad; ymax += pad;
         if (!isFinite(ymin)) ymin = 0; if (!isFinite(ymax) || ymax <= ymin) ymax = ymin + 1;
 
         // Axes helpers
@@ -552,9 +554,9 @@
         function yToPx(ev) { return H - 40 - (ev - ymin) * (H - 80) / (ymax - ymin); }
 
         // Draw axes
-        ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.0;
         ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, H - 30); ctx.lineTo(W - 20, H - 30); ctx.stroke();
-        ctx.fillStyle = '#1f2937'; ctx.font = '12px Arial';
+        ctx.fillStyle = '#111827'; ctx.font = '14px Arial';
         ctx.fillText('x (nm)', W - 60, H - 10);
         ctx.save(); ctx.translate(15, 30); ctx.rotate(-Math.PI/2); ctx.fillText('Energy / Potential (eV)', 0, 0); ctx.restore();
 
@@ -577,7 +579,7 @@
         for (let j = 0; j < psi[0].length; j++) {
             for (let i = 0; i < x.length; i++) maxProb = Math.max(maxProb, psi[i][j]*psi[i][j]);
         }
-        const probScale = (ymax - ymin) * 0.10 / (maxProb > 0 ? maxProb : 1); // 10% of vertical range
+        const probScale = (ymax - ymin) * 0.12 / (maxProb > 0 ? maxProb : 1); // 12% of vertical range
         let maxAmp = 0;
         for (let j = 0; j < psi[0].length; j++) {
             for (let i = 0; i < x.length; i++) maxAmp = Math.max(maxAmp, Math.abs(psi[i][j]));
@@ -589,7 +591,7 @@
 
             if (showProb) {
                 ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 1.6;
+                ctx.lineWidth = 2.0;
                 ctx.beginPath();
                 for (let i = 0; i < x.length; i++) {
                     const prob = psi[i][j] * psi[i][j] * probScale;
@@ -598,11 +600,19 @@
                     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
                 }
                 ctx.stroke();
+                // Fill under curve for visibility
+                ctx.globalAlpha = 0.10;
+                ctx.lineTo(xToPx(x_nm[x_nm.length-1]), yToPx(E_eV));
+                ctx.lineTo(xToPx(x_nm[0]), yToPx(E_eV));
+                ctx.closePath();
+                ctx.fillStyle = colors[j % colors.length];
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
             }
 
             if (showWave) {
                 ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 1.2;
+                ctx.lineWidth = 1.6;
                 ctx.setLineDash([2,2]);
                 ctx.beginPath();
                 for (let i = 0; i < x.length; i++) {
