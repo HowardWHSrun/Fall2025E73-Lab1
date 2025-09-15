@@ -57,6 +57,16 @@
             height: auto;
             aspect-ratio: 16/7;
         }
+        .plot {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            display: block;
+            margin: 20px auto;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            width: 100%;
+            height: 560px;
+        }
         .controls {
             display: flex;
             justify-content: center;
@@ -195,7 +205,7 @@
                 <label><input type="checkbox" id="iw_auto" checked /> Auto update</label>
                 <button id="iw_save">Download PNG</button>
             </div>
-            <canvas id="iw_canvas" width="1600" height="700"></canvas>
+            <div id="iw_plot" class="plot"></div>
             <div class="small" id="iw_info"></div>
         </div>
 
@@ -237,7 +247,7 @@
                 <label><input type="checkbox" id="fw_auto" checked /> Auto update</label>
                 <button id="fw_save">Download PNG</button>
             </div>
-            <canvas id="fw_canvas" width="1600" height="700"></canvas>
+            <div id="fw_plot" class="plot"></div>
             <div class="small" id="fw_info"></div>
         </div>
 
@@ -279,7 +289,7 @@
                 <label><input type="checkbox" id="br_auto" checked /> Auto update</label>
                 <button id="br_save">Download PNG</button>
             </div>
-            <canvas id="br_canvas" width="1600" height="700"></canvas>
+            <div id="br_plot" class="plot"></div>
             <div class="small" id="br_info"></div>
         </div>
 
@@ -317,7 +327,7 @@
                 <label><input type="checkbox" id="ho_auto" checked /> Auto update</label>
                 <button id="ho_save">Download PNG</button>
             </div>
-            <canvas id="ho_canvas" width="1600" height="700"></canvas>
+            <div id="ho_plot" class="plot"></div>
             <div class="small" id="ho_info"></div>
         </div>
     </div>
@@ -521,20 +531,56 @@
     // ================================
     // Rendering utilities
     // ================================
-    function drawPotentialAndDensities(canvasId, x, V, energies, psi, title, options = {}) {
-        const canvas = document.getElementById(canvasId);
-        const ctx = canvas.getContext('2d');
-        const W = canvas.width, H = canvas.height;
-        ctx.clearRect(0, 0, W, H);
+    function drawPotentialAndDensities(containerId, x, V, energies, psi, title, options = {}) {
+        // Render with SVG for crisper plots
+        const wrap = document.getElementById(containerId);
+        wrap.innerHTML = '';
+        const W = wrap.clientWidth || 1000;
+        const H = wrap.clientHeight || 560;
+
+        const svgns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgns, 'svg');
+        svg.setAttribute('width', W);
+        svg.setAttribute('height', H);
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.style.background = '#ffffff';
+        wrap.appendChild(svg);
 
         const showPotential = options.showPotential !== false;
         const showProb = options.showProb !== false;
         const showWave = options.showWave === true;
         const showEnergy = options.showEnergy !== false;
 
-        // Background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, W, H);
+        // Helpers
+        function line(x1, y1, x2, y2, color, width, dash) {
+            const l = document.createElementNS(svgns, 'line');
+            l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+            l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+            l.setAttribute('stroke', color);
+            if (width) l.setAttribute('stroke-width', width);
+            if (dash) l.setAttribute('stroke-dasharray', dash);
+            svg.appendChild(l);
+        }
+        function path(d, stroke, width, fill, opacity, dash) {
+            const p = document.createElementNS(svgns, 'path');
+            p.setAttribute('d', d);
+            p.setAttribute('fill', fill || 'none');
+            p.setAttribute('stroke', stroke || 'none');
+            if (width) p.setAttribute('stroke-width', width);
+            if (opacity != null) p.setAttribute('opacity', opacity);
+            if (dash) p.setAttribute('stroke-dasharray', dash);
+            svg.appendChild(p);
+        }
+        function text(x, y, str, size = 12, color = '#111827', anchor = 'start') {
+            const t = document.createElementNS(svgns, 'text');
+            t.setAttribute('x', x); t.setAttribute('y', y);
+            t.setAttribute('fill', color);
+            t.setAttribute('font-size', size);
+            t.setAttribute('font-family', 'Arial, sans-serif');
+            t.setAttribute('text-anchor', anchor);
+            t.textContent = str;
+            svg.appendChild(t);
+        }
 
         // Convert units
         const x_nm = x.map(xi => xi / NM);
@@ -554,22 +600,21 @@
         function yToPx(ev) { return H - 40 - (ev - ymin) * (H - 80) / (ymax - ymin); }
 
         // Draw axes
-        ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.0;
-        ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, H - 30); ctx.lineTo(W - 20, H - 30); ctx.stroke();
-        ctx.fillStyle = '#111827'; ctx.font = '14px Arial';
-        ctx.fillText('x (nm)', W - 60, H - 10);
-        ctx.save(); ctx.translate(15, 30); ctx.rotate(-Math.PI/2); ctx.fillText('Energy / Potential (eV)', 0, 0); ctx.restore();
+        line(50, 20, 50, H - 30, '#9ca3af', 1);
+        line(50, H - 30, W - 20, H - 30, '#9ca3af', 1);
+        text(W - 60, H - 10, 'x (nm)');
+        // y label (approx by rotated text near top-left)
+        text(20, 30, 'Energy / Potential (eV)');
 
         // Draw potential
         if (showPotential) {
-            ctx.strokeStyle = '#111827'; ctx.lineWidth = 2;
-            ctx.beginPath();
+            let d = '';
             for (let i = 0; i < x_nm.length; i++) {
                 const px = xToPx(x_nm[i]);
                 const py = yToPx(V_eV[i]);
-                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                d += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
             }
-            ctx.stroke();
+            path(d, '#111827', 2);
         }
 
         // Draw probability densities of first few states
@@ -590,54 +635,40 @@
             const E_eV = energies[j] / E_CHARGE;
 
             if (showProb) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 2.0;
-                ctx.beginPath();
+                const c = colors[j % colors.length];
+                let d = '';
                 for (let i = 0; i < x.length; i++) {
                     const prob = psi[i][j] * psi[i][j] * probScale;
                     const px = xToPx(x_nm[i]);
                     const py = yToPx(E_eV + prob);
-                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    d += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
                 }
-                ctx.stroke();
-                // Fill under curve for visibility
-                ctx.globalAlpha = 0.10;
-                ctx.lineTo(xToPx(x_nm[x_nm.length-1]), yToPx(E_eV));
-                ctx.lineTo(xToPx(x_nm[0]), yToPx(E_eV));
-                ctx.closePath();
-                ctx.fillStyle = colors[j % colors.length];
-                ctx.fill();
-                ctx.globalAlpha = 1.0;
+                // stroke curve
+                path(d, c, 2);
+                // fill under curve
+                d += ` L ${xToPx(x_nm[x_nm.length-1])} ${yToPx(E_eV)} L ${xToPx(x_nm[0])} ${yToPx(E_eV)} Z`;
+                path(d, 'none', 0, c, 0.10);
             }
 
             if (showWave) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 1.6;
-                ctx.setLineDash([2,2]);
-                ctx.beginPath();
+                const c = colors[j % colors.length];
+                let d = '';
                 for (let i = 0; i < x.length; i++) {
                     const px = xToPx(x_nm[i]);
                     const py = yToPx(E_eV + psi[i][j] * waveScale);
-                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    d += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
                 }
-                ctx.stroke();
-                ctx.setLineDash([]);
+                path(d, c, 1.6);
             }
 
             if (showEnergy) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.setLineDash([5,3]);
-                ctx.beginPath();
-                ctx.moveTo(xToPx(x_nm[0]), yToPx(E_eV));
-                ctx.lineTo(xToPx(x_nm[x_nm.length-1]), yToPx(E_eV));
-                ctx.stroke();
-                ctx.setLineDash([]);
+                const y = yToPx(E_eV);
+                line(xToPx(x_nm[0]), y, xToPx(x_nm[x_nm.length-1]), y, colors[j % colors.length], 1, '5,3');
             }
         }
 
         // Title
-        ctx.fillStyle = '#111827'; ctx.font = 'bold 14px Arial';
-        ctx.fillText(title, 60, 18);
+        text(60, 18, title, 14, '#111827');
     }
 
     // ================================
@@ -764,7 +795,32 @@
             el.addEventListener(evt, () => { if (isAuto(prefix)) handler(); });
         });
         const saveBtn = document.getElementById(saveBtnId);
-        if (saveBtn) saveBtn.onclick = () => saveCanvas(canvasId, filename);
+        if (saveBtn) saveBtn.onclick = () => {
+            // Export current SVG as PNG
+            const wrap = document.getElementById(canvasId.replace('_canvas','_plot')) || document.getElementById(canvasId);
+            const svg = wrap.querySelector('svg');
+            if (!svg) return;
+            const serializer = new XMLSerializer();
+            const svgStr = serializer.serializeToString(svg);
+            const img = new Image();
+            const blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = svg.viewBox.baseVal.width || svg.width.baseVal.value;
+                canvas.height = svg.viewBox.baseVal.height || svg.height.baseVal.value;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                const a = document.createElement('a');
+                a.download = filename;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            };
+            img.src = url;
+        };
     };
 
     bindAuto('iw', ['iw_L','iw_N','iw_K','iw_showV','iw_showProb','iw_showWave','iw_showE','iw_auto'], runInfiniteWell, 'iw_canvas', 'iw_save', 'infinite_well.png');
