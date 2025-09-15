@@ -603,8 +603,9 @@
         line(50, 20, 50, H - 30, '#9ca3af', 1);
         line(50, H - 30, W - 20, H - 30, '#9ca3af', 1);
         text(W - 60, H - 10, 'x (nm)');
-        // y label (approx by rotated text near top-left)
-        text(20, 30, 'Energy / Potential (eV)');
+        // y label (left)
+        text(60, 14, title, 14, '#111827');
+        text(18, 30, 'Energy / Potential (eV)');
 
         // Draw potential
         if (showPotential) {
@@ -667,8 +668,7 @@
             }
         }
 
-        // Title
-        text(60, 18, title, 14, '#111827');
+        // done
     }
 
     // ================================
@@ -686,7 +686,7 @@
         const V = potentialZero(x);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('iw');
-        drawPotentialAndDensities('iw_canvas', x, V, energies, psi, `Infinite Well (L = ${L.toFixed(2)} nm)`, opts);
+        drawPotentialAndDensities('iw_plot', x, V, energies, psi, `Infinite Well (L = ${L.toFixed(2)} nm)`, opts);
 
         // Display first few energies in eV
         const eList = energies.map((E, i) => `n=${i+1}: ${(E/E_CHARGE).toFixed(6)} eV`).join(' | ');
@@ -712,7 +712,7 @@
         const V = potentialFiniteWell(x, a, V0);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('fw');
-        drawPotentialAndDensities('fw_canvas', x, V, energies, psi, `Finite Well (a=${a.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
+        drawPotentialAndDensities('fw_plot', x, V, energies, psi, `Finite Well (a=${a.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
 
         // Bound states E < 0
         const eList = energies.map((E, i) => ({i, E_eV: E/E_CHARGE}));
@@ -742,7 +742,7 @@
         const V = potentialBarrier(x, b, V0);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('br');
-        drawPotentialAndDensities('br_canvas', x, V, energies, psi, `Barrier (b=${b.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
+        drawPotentialAndDensities('br_plot', x, V, energies, psi, `Barrier (b=${b.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
 
         const txt = energies.map((E, i) => `n=${i}: ${(E/E_CHARGE).toFixed(6)} eV`).join(' | ');
         document.getElementById('br_info').textContent = `Energies: ${txt}`;
@@ -770,7 +770,7 @@
         const V = potentialSHO(x, M_E, omega);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('ho');
-        drawPotentialAndDensities('ho_canvas', x, V, energies, psi, `SHO (ω=${omega.toExponential(2)} rad/s, span=${spanMul}×x₀)`, opts);
+        drawPotentialAndDensities('ho_plot', x, V, energies, psi, `SHO (ω=${omega.toExponential(2)} rad/s, span=${spanMul}×x₀)`, opts);
 
         // Analytical E_n = ħω(n + 1/2)
         const ana = Array.from({length: K}, (_, n) => HBAR*omega*(n+0.5)/E_CHARGE);
@@ -787,7 +787,7 @@
     document.getElementById('ho_run').onclick = runSHO;
 
     // Auto-update bindings for sliders and toggles
-    const bindAuto = (prefix, ids, handler, canvasId, saveBtnId, filename) => {
+    const bindAuto = (prefix, ids, handler, containerId, saveBtnId, filename) => {
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -797,7 +797,7 @@
         const saveBtn = document.getElementById(saveBtnId);
         if (saveBtn) saveBtn.onclick = () => {
             // Export current SVG as PNG
-            const wrap = document.getElementById(canvasId.replace('_canvas','_plot')) || document.getElementById(canvasId);
+            const wrap = document.getElementById(containerId);
             const svg = wrap.querySelector('svg');
             if (!svg) return;
             const serializer = new XMLSerializer();
@@ -823,10 +823,10 @@
         };
     };
 
-    bindAuto('iw', ['iw_L','iw_N','iw_K','iw_showV','iw_showProb','iw_showWave','iw_showE','iw_auto'], runInfiniteWell, 'iw_canvas', 'iw_save', 'infinite_well.png');
-    bindAuto('fw', ['fw_L','fw_a','fw_V0','fw_N','fw_K','fw_showV','fw_showProb','fw_showWave','fw_showE','fw_auto'], runFiniteWell, 'fw_canvas', 'fw_save', 'finite_well.png');
-    bindAuto('br', ['br_L','br_b','br_V0','br_N','br_K','br_showV','br_showProb','br_showWave','br_showE','br_auto'], runBarrier, 'br_canvas', 'br_save', 'barrier.png');
-    bindAuto('ho', ['ho_w','ho_span','ho_N','ho_K','ho_showV','ho_showProb','ho_showWave','ho_showE','ho_auto'], runSHO, 'ho_canvas', 'ho_save', 'sho.png');
+    bindAuto('iw', ['iw_L','iw_N','iw_K','iw_showV','iw_showProb','iw_showWave','iw_showE','iw_auto'], runInfiniteWell, 'iw_plot', 'iw_save', 'infinite_well.png');
+    bindAuto('fw', ['fw_L','fw_a','fw_V0','fw_N','fw_K','fw_showV','fw_showProb','fw_showWave','fw_showE','fw_auto'], runFiniteWell, 'fw_plot', 'fw_save', 'finite_well.png');
+    bindAuto('br', ['br_L','br_b','br_V0','br_N','br_K','br_showV','br_showProb','br_showWave','br_showE','br_auto'], runBarrier, 'br_plot', 'br_save', 'barrier.png');
+    bindAuto('ho', ['ho_w','ho_span','ho_N','ho_K','ho_showV','ho_showProb','ho_showWave','ho_showE','ho_auto'], runSHO, 'ho_plot', 'ho_save', 'sho.png');
 
     // Initial renders
     window.onload = function() {
