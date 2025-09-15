@@ -586,25 +586,28 @@
         const x_nm = x.map(xi => xi / NM);
         const V_eV = V.map(v => v / E_CHARGE);
 
-        // Determine y scaling (pad top/bottom for clarity)
+        // Determine y scaling based on both potentials and energy levels, with small padding
         const Vmin = Math.min(...V_eV);
         const Vmax = Math.max(...V_eV);
-        let ymin = Math.min(Vmin, 0);
-        let ymax = Math.max(Vmax, (energies[energies.length-1] / E_CHARGE));
-        const pad = (ymax - ymin) * 0.15 || 1;
+        const Es = energies.map(e => e / E_CHARGE);
+        const Emin = Math.min(...Es);
+        const Emax = Math.max(...Es);
+        let ymin = Math.min(Vmin, Emin);
+        let ymax = Math.max(Vmax, Emax);
+        const pad = Math.max(1e-6, (ymax - ymin) * 0.08);
         ymin -= pad; ymax += pad;
         if (!isFinite(ymin)) ymin = 0; if (!isFinite(ymax) || ymax <= ymin) ymax = ymin + 1;
 
         // Axes helpers
-        function xToPx(xv) { const x0 = x_nm[0], x1 = x_nm[x_nm.length-1]; return (xv - x0) * (W - 80) / (x1 - x0) + 60; }
-        function yToPx(ev) { return H - 40 - (ev - ymin) * (H - 80) / (ymax - ymin); }
+        const margin = {left: 60, right: 20, top: 30, bottom: 36};
+        function xToPx(xv) { const x0 = x_nm[0], x1 = x_nm[x_nm.length-1]; return (xv - x0) * (W - margin.left - margin.right) / (x1 - x0) + margin.left; }
+        function yToPx(ev) { return H - margin.bottom - (ev - ymin) * (H - margin.top - margin.bottom) / (ymax - ymin); }
 
         // Draw axes
-        line(50, 20, 50, H - 30, '#9ca3af', 1);
-        line(50, H - 30, W - 20, H - 30, '#9ca3af', 1);
+        line(margin.left, margin.top, margin.left, H - margin.bottom, '#9ca3af', 1);
+        line(margin.left, H - margin.bottom, W - margin.right, H - margin.bottom, '#9ca3af', 1);
         text(W - 60, H - 10, 'x (nm)');
-        // y label (left)
-        text(60, 14, title, 14, '#111827');
+        text(margin.left, 18, title, 14, '#111827');
         text(18, 30, 'Energy / Potential (eV)');
 
         // Draw potential
@@ -619,13 +622,13 @@
         }
 
         // Draw probability densities of first few states
-        const colors = ['#1d4ed8', '#059669', '#dc2626', '#9333ea', '#f59e0b', '#0ea5e9'];
+        const colors = ['#2563eb', '#059669', '#dc2626', '#7c3aed', '#f59e0b', '#0ea5e9'];
         // Compute scale for densities
         let maxProb = 0;
         for (let j = 0; j < psi[0].length; j++) {
             for (let i = 0; i < x.length; i++) maxProb = Math.max(maxProb, psi[i][j]*psi[i][j]);
         }
-        const probScale = (ymax - ymin) * 0.12 / (maxProb > 0 ? maxProb : 1); // 12% of vertical range
+        const probScale = (ymax - ymin) * 0.18 / (maxProb > 0 ? maxProb : 1); // 18% of vertical range for better visibility
         let maxAmp = 0;
         for (let j = 0; j < psi[0].length; j++) {
             for (let i = 0; i < x.length; i++) maxAmp = Math.max(maxAmp, Math.abs(psi[i][j]));
@@ -645,7 +648,7 @@
                     d += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
                 }
                 // stroke curve
-                path(d, c, 2);
+                path(d, c, 2.5);
                 // fill under curve
                 d += ` L ${xToPx(x_nm[x_nm.length-1])} ${yToPx(E_eV)} L ${xToPx(x_nm[0])} ${yToPx(E_eV)} Z`;
                 path(d, 'none', 0, c, 0.10);
