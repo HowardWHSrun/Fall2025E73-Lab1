@@ -673,12 +673,29 @@
     bindAuto('br', ['br_L','br_b','br_V0','br_N','br_K','br_showV','br_showProb','br_showWave','br_showE','br_auto'], runBarrier, 'br_plot', 'br_save', 'barrier.png');
     bindAuto('ho', ['ho_w','ho_span','ho_N','ho_K','ho_showV','ho_showProb','ho_showWave','ho_showE','ho_auto'], runSHO, 'ho_plot', 'ho_save', 'sho.png');
 
-    // Initial renders
+    // Initial renders + responsive rerender on resize for correct sizing
+    function attachResize(containerId, handler){
+        const el = document.getElementById(containerId);
+        if (!('ResizeObserver' in window) || !el) return;
+        const ro = new ResizeObserver(() => handler());
+        ro.observe(el);
+    }
+
     window.onload = function() {
         runInfiniteWell();
         runFiniteWell();
         runBarrier();
         runSHO();
+        attachResize('iw_plot', runInfiniteWell);
+        attachResize('fw_plot', runFiniteWell);
+        attachResize('br_plot', runBarrier);
+        attachResize('ho_plot', runSHO);
+        window.addEventListener('resize', () => {
+            runInfiniteWell();
+            runFiniteWell();
+            runBarrier();
+            runSHO();
+        });
     };
     </script>
  </body>

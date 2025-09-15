@@ -16,8 +16,8 @@
     opts = opts || {};
     const wrap = ensureEl(container);
     wrap.innerHTML = '';
-    const W = wrap.clientWidth || 1000;
-    const H = wrap.clientHeight || 560;
+    const W = wrap.clientWidth > 0 ? wrap.clientWidth : (wrap.parentElement ? wrap.parentElement.clientWidth - 40 : 1000);
+    const H = wrap.clientHeight > 0 ? wrap.clientHeight : Math.max(440, Math.floor(W * 0.4));
 
     const svgns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgns, 'svg');
@@ -68,7 +68,7 @@
     const pad = Math.max(1e-6, (ymax - ymin) * 0.08); ymin -= pad; ymax += pad;
 
     const margin = {left: 60, right: 20, top: 30, bottom: 36};
-    const xToPx = xv => { const x0 = x_nm[0], x1 = x_nm[x_nm.length-1]; return (xv - x0) * (W - margin.left - margin.right) / (x1 - x0) + margin.left; };
+    const xToPx = xv => { const x0 = x_nm[0], x1 = x_nm[x_nm.length-1] || (x_nm[0] + 1); return (xv - x0) * (W - margin.left - margin.right) / (x1 - x0) + margin.left; };
     const yToPx = ev => H - margin.bottom - (ev - ymin) * (H - margin.top - margin.bottom) / (ymax - ymin);
 
     line(margin.left, margin.top, margin.left, H - margin.bottom, '#9ca3af', 1);
