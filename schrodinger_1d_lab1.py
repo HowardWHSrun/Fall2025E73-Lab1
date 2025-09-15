@@ -17,6 +17,7 @@ import scipy.constants as const
 from scipy import sparse
 from scipy.sparse.linalg import eigsh
 import matplotlib.pyplot as plt
+plt.style.use("seaborn-v0_8-whitegrid")
 
 
 # ================================
@@ -105,8 +106,8 @@ def plot_potential_and_states(
     x_nm = x / NM
     V_eV = potential * JOULE_TO_EV
 
-    plt.figure(figsize=(9, 6))
-    plt.plot(x_nm, V_eV, "k-", lw=2, label="V(x)")
+    plt.figure(figsize=(9, 6), dpi=150)
+    plt.plot(x_nm, V_eV, color="#111827", lw=2, label="V(x)")
 
     num_plot = min(max_states_to_plot, energies.size)
     if num_plot > 0:
@@ -118,7 +119,7 @@ def plot_potential_and_states(
         v_range = np.max(V_eV) - np.min(V_eV)
         if not np.isfinite(v_range) or v_range <= 0:
             v_range = 1.0
-        scale = 0.1 * v_range
+        scale = 0.10 * v_range
 
         for i in range(num_plot):
             psi_i = psi[:, i]
@@ -127,9 +128,9 @@ def plot_potential_and_states(
             if max_amp == 0:
                 continue
             psi_scaled = (psi_i / max_amp) * scale + E[i]
-            plt.plot(x_nm, psi_scaled, lw=1.5, label=f"ψ{i}(x) + E{i}")
+            plt.plot(x_nm, psi_scaled, lw=1.2, label=f"ψ{i}(x) + E{i}")
             # Draw a horizontal line for the energy level
-            plt.hlines(E[i], x_nm[0], x_nm[-1], colors="C1", linestyles=":", alpha=0.6)
+            plt.hlines(E[i], x_nm[0], x_nm[-1], colors="#6b7280", linestyles=":", alpha=0.7)
 
     plt.xlabel("x (nm)")
     plt.ylabel("Energy / Potential (eV)")
@@ -153,14 +154,15 @@ def plot_probability_density(
     Plot the probability densities |ψ(x)|^2 for the first few eigenfunctions.
     """
     x_nm = x / NM
-    plt.figure(figsize=(9, 6))
+    plt.figure(figsize=(9, 6), dpi=150)
 
     num_plot = min(max_states_to_plot, wavefuncs.shape[1])
     if num_plot > 0:
         for i in range(num_plot):
             prob_density = np.abs(wavefuncs[:, i]) ** 2
             E_eV = energies[i] * JOULE_TO_EV
-            plt.plot(x_nm, prob_density, lw=1.5, label=f"|ψ{i}(x)|², E{i}={E_eV:.3f} eV")
+            plt.fill_between(x_nm, 0, prob_density, alpha=0.25)
+            plt.plot(x_nm, prob_density, lw=1.2, label=f"|ψ{i}(x)|², E{i}={E_eV:.3f} eV")
 
     plt.xlabel("x (nm)")
     plt.ylabel("Probability Density |ψ(x)|²")
