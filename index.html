@@ -192,7 +192,7 @@
                 <label><input type="checkbox" id="iw_auto" checked /> Auto update</label>
                 <button id="iw_save">Download PNG</button>
             </div>
-            <canvas id="iw_canvas" width="900" height="360"></canvas>
+            <div id="iw_plot" style="width:100%;height:560px;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
             <div class="small" id="iw_info"></div>
         </div>
 
@@ -234,7 +234,7 @@
                 <label><input type="checkbox" id="fw_auto" checked /> Auto update</label>
                 <button id="fw_save">Download PNG</button>
             </div>
-            <canvas id="fw_canvas" width="900" height="360"></canvas>
+            <div id="fw_plot" style="width:100%;height:560px;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
             <div class="small" id="fw_info"></div>
         </div>
 
@@ -276,7 +276,7 @@
                 <label><input type="checkbox" id="br_auto" checked /> Auto update</label>
                 <button id="br_save">Download PNG</button>
             </div>
-            <canvas id="br_canvas" width="900" height="360"></canvas>
+            <div id="br_plot" style="width:100%;height:560px;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
             <div class="small" id="br_info"></div>
         </div>
 
@@ -314,11 +314,12 @@
                 <label><input type="checkbox" id="ho_auto" checked /> Auto update</label>
                 <button id="ho_save">Download PNG</button>
             </div>
-            <canvas id="ho_canvas" width="900" height="360"></canvas>
+            <div id="ho_plot" style="width:100%;height:560px;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
             <div class="small" id="ho_info"></div>
         </div>
     </div>
 
+    <script src="./plot.js"></script>
     <script>
     // ================================
     // Constants (SI units)
@@ -516,119 +517,7 @@
     }
 
     // ================================
-    // Rendering utilities
-    // ================================
-    function drawPotentialAndDensities(canvasId, x, V, energies, psi, title, options = {}) {
-        const canvas = document.getElementById(canvasId);
-        const ctx = canvas.getContext('2d');
-        const W = canvas.width, H = canvas.height;
-        ctx.clearRect(0, 0, W, H);
-
-        const showPotential = options.showPotential !== false;
-        const showProb = options.showProb !== false;
-        const showWave = options.showWave === true;
-        const showEnergy = options.showEnergy !== false;
-
-        // Background
-        const gradient = ctx.createLinearGradient(0, 0, W, H);
-        gradient.addColorStop(0, '#f0f4ff');
-        gradient.addColorStop(1, '#e6f0ff');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, W, H);
-
-        // Convert units
-        const x_nm = x.map(xi => xi / NM);
-        const V_eV = V.map(v => v / E_CHARGE);
-
-        // Determine y scaling
-        const Vmin = Math.min(...V_eV);
-        const Vmax = Math.max(...V_eV);
-        let ymin = Math.min(Vmin, 0);
-        let ymax = Math.max(Vmax, (energies[energies.length-1] / E_CHARGE) * 1.2);
-        if (!isFinite(ymin)) ymin = 0; if (!isFinite(ymax) || ymax <= ymin) ymax = ymin + 1;
-
-        // Axes helpers
-        function xToPx(xv) { const x0 = x_nm[0], x1 = x_nm[x_nm.length-1]; return (xv - x0) * (W - 80) / (x1 - x0) + 60; }
-        function yToPx(ev) { return H - 40 - (ev - ymin) * (H - 80) / (ymax - ymin); }
-
-        // Draw axes
-        ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(50, H - 30); ctx.lineTo(W - 20, H - 30); ctx.stroke();
-        ctx.fillStyle = '#1f2937'; ctx.font = '12px Arial';
-        ctx.fillText('x (nm)', W - 60, H - 10);
-        ctx.save(); ctx.translate(15, 30); ctx.rotate(-Math.PI/2); ctx.fillText('Energy / Potential (eV)', 0, 0); ctx.restore();
-
-        // Draw potential
-        if (showPotential) {
-            ctx.strokeStyle = '#111827'; ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (let i = 0; i < x_nm.length; i++) {
-                const px = xToPx(x_nm[i]);
-                const py = yToPx(V_eV[i]);
-                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-            }
-            ctx.stroke();
-        }
-
-        // Draw probability densities of first few states
-        const colors = ['#1d4ed8', '#059669', '#dc2626', '#9333ea', '#f59e0b', '#0ea5e9'];
-        // Compute scale for densities
-        let maxProb = 0;
-        for (let j = 0; j < psi[0].length; j++) {
-            for (let i = 0; i < x.length; i++) maxProb = Math.max(maxProb, psi[i][j]*psi[i][j]);
-        }
-        const probScale = (ymax - ymin) * 0.10 / (maxProb > 0 ? maxProb : 1); // 10% of vertical range
-        let maxAmp = 0;
-        for (let j = 0; j < psi[0].length; j++) {
-            for (let i = 0; i < x.length; i++) maxAmp = Math.max(maxAmp, Math.abs(psi[i][j]));
-        }
-        const waveScale = (ymax - ymin) * 0.06 / (maxAmp > 0 ? maxAmp : 1); // 6%
-
-        for (let j = 0; j < psi[0].length; j++) {
-            const E_eV = energies[j] / E_CHARGE;
-
-            if (showProb) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 1.6;
-                ctx.beginPath();
-                for (let i = 0; i < x.length; i++) {
-                    const prob = psi[i][j] * psi[i][j] * probScale;
-                    const px = xToPx(x_nm[i]);
-                    const py = yToPx(E_eV + prob);
-                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-                }
-                ctx.stroke();
-            }
-
-            if (showWave) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.lineWidth = 1.2;
-                ctx.setLineDash([2,2]);
-                ctx.beginPath();
-                for (let i = 0; i < x.length; i++) {
-                    const px = xToPx(x_nm[i]);
-                    const py = yToPx(E_eV + psi[i][j] * waveScale);
-                    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-                }
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-
-            if (showEnergy) {
-                ctx.strokeStyle = colors[j % colors.length];
-                ctx.setLineDash([5,3]);
-                ctx.beginPath();
-                ctx.moveTo(xToPx(x_nm[0]), yToPx(E_eV));
-                ctx.lineTo(xToPx(x_nm[x_nm.length-1]), yToPx(E_eV));
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-        }
-
-        // Title
-        ctx.fillStyle = '#111827'; ctx.font = 'bold 14px Arial';
-        ctx.fillText(title, 60, 18);
-    }
+    // Use the external plotting API to render
 
     // ================================
     // UI Handlers: Infinite Well
@@ -645,7 +534,7 @@
         const V = potentialZero(x);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('iw');
-        drawPotentialAndDensities('iw_canvas', x, V, energies, psi, `Infinite Well (L = ${L.toFixed(2)} nm)`, opts);
+        window.QMPlot.renderPotentialAndStatesSVG('iw_plot', x, V, energies, psi, `Infinite Well (L = ${L.toFixed(2)} nm)`, opts);
 
         // Display first few energies in eV
         const eList = energies.map((E, i) => `n=${i+1}: ${(E/E_CHARGE).toFixed(6)} eV`).join(' | ');
@@ -671,7 +560,7 @@
         const V = potentialFiniteWell(x, a, V0);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('fw');
-        drawPotentialAndDensities('fw_canvas', x, V, energies, psi, `Finite Well (a=${a.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
+        window.QMPlot.renderPotentialAndStatesSVG('fw_plot', x, V, energies, psi, `Finite Well (a=${a.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
 
         // Bound states E < 0
         const eList = energies.map((E, i) => ({i, E_eV: E/E_CHARGE}));
@@ -701,7 +590,7 @@
         const V = potentialBarrier(x, b, V0);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('br');
-        drawPotentialAndDensities('br_canvas', x, V, energies, psi, `Barrier (b=${b.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
+        window.QMPlot.renderPotentialAndStatesSVG('br_plot', x, V, energies, psi, `Barrier (b=${b.toFixed(2)} nm, V₀=${V0.toFixed(2)} eV)`, opts);
 
         const txt = energies.map((E, i) => `n=${i}: ${(E/E_CHARGE).toFixed(6)} eV`).join(' | ');
         document.getElementById('br_info').textContent = `Energies: ${txt}`;
@@ -729,7 +618,7 @@
         const V = potentialSHO(x, M_E, omega);
         const {energies, psi} = solveEigen(x, V, M_E, K);
         const opts = readOptions('ho');
-        drawPotentialAndDensities('ho_canvas', x, V, energies, psi, `SHO (ω=${omega.toExponential(2)} rad/s, span=${spanMul}×x₀)`, opts);
+        window.QMPlot.renderPotentialAndStatesSVG('ho_plot', x, V, energies, psi, `SHO (ω=${omega.toExponential(2)} rad/s, span=${spanMul}×x₀)`, opts);
 
         // Analytical E_n = ħω(n + 1/2)
         const ana = Array.from({length: K}, (_, n) => HBAR*omega*(n+0.5)/E_CHARGE);
@@ -746,7 +635,7 @@
     document.getElementById('ho_run').onclick = runSHO;
 
     // Auto-update bindings for sliders and toggles
-    const bindAuto = (prefix, ids, handler, canvasId, saveBtnId, filename) => {
+    const bindAuto = (prefix, ids, handler, containerId, saveBtnId, filename) => {
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -754,13 +643,35 @@
             el.addEventListener(evt, () => { if (isAuto(prefix)) handler(); });
         });
         const saveBtn = document.getElementById(saveBtnId);
-        if (saveBtn) saveBtn.onclick = () => saveCanvas(canvasId, filename);
+        if (saveBtn) saveBtn.onclick = () => {
+            const wrap = document.getElementById(containerId);
+            const svg = wrap.querySelector('svg');
+            if (!svg) return;
+            const serializer = new XMLSerializer();
+            const svgStr = serializer.serializeToString(svg);
+            const img = new Image();
+            const blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = svg.viewBox.baseVal.width || svg.width.baseVal.value;
+                canvas.height = svg.viewBox.baseVal.height || svg.height.baseVal.value;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                const a = document.createElement('a');
+                a.download = filename; a.href = canvas.toDataURL('image/png'); a.click();
+            };
+            img.src = url;
+        };
     };
 
-    bindAuto('iw', ['iw_L','iw_N','iw_K','iw_showV','iw_showProb','iw_showWave','iw_showE','iw_auto'], runInfiniteWell, 'iw_canvas', 'iw_save', 'infinite_well.png');
-    bindAuto('fw', ['fw_L','fw_a','fw_V0','fw_N','fw_K','fw_showV','fw_showProb','fw_showWave','fw_showE','fw_auto'], runFiniteWell, 'fw_canvas', 'fw_save', 'finite_well.png');
-    bindAuto('br', ['br_L','br_b','br_V0','br_N','br_K','br_showV','br_showProb','br_showWave','br_showE','br_auto'], runBarrier, 'br_canvas', 'br_save', 'barrier.png');
-    bindAuto('ho', ['ho_w','ho_span','ho_N','ho_K','ho_showV','ho_showProb','ho_showWave','ho_showE','ho_auto'], runSHO, 'ho_canvas', 'ho_save', 'sho.png');
+    bindAuto('iw', ['iw_L','iw_N','iw_K','iw_showV','iw_showProb','iw_showWave','iw_showE','iw_auto'], runInfiniteWell, 'iw_plot', 'iw_save', 'infinite_well.png');
+    bindAuto('fw', ['fw_L','fw_a','fw_V0','fw_N','fw_K','fw_showV','fw_showProb','fw_showWave','fw_showE','fw_auto'], runFiniteWell, 'fw_plot', 'fw_save', 'finite_well.png');
+    bindAuto('br', ['br_L','br_b','br_V0','br_N','br_K','br_showV','br_showProb','br_showWave','br_showE','br_auto'], runBarrier, 'br_plot', 'br_save', 'barrier.png');
+    bindAuto('ho', ['ho_w','ho_span','ho_N','ho_K','ho_showV','ho_showProb','ho_showWave','ho_showE','ho_auto'], runSHO, 'ho_plot', 'ho_save', 'sho.png');
 
     // Initial renders
     window.onload = function() {
